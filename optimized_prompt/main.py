@@ -5,7 +5,7 @@ import argparse
 from config import OPENAI_API_KEY
 # Must Define key
 
-input_prompt = ""
+input_prompt = "Are you able to convert text into transcription that fits a markdown style, as in a traditional page on a note-taking website or github readme, which splits words and text into headers, bulletpoints, bolding, italics, underlines, etc (and any combination). ensure YOU DO NOT deviate from this style format for every message given to you. Sometimes, the message will not be long enough, and you may need to wait a bit before processing the file. DO NOT just convert text to markdown. Highlight important bits using a traditional style guide and create it as if you were writing notes for a class. "
 def convert_to_markdown(text, response_length = "medium"):
     prompt = f"{input_prompt}:\n\n{text}\n\n---\n\n"
 
