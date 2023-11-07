@@ -1,3 +1,4 @@
 node_modules
 optimized_prompt/config.py
 optimized_prompt/input.txt
+optimized_prompt/__pycache__
