@@ -6,7 +6,7 @@ from config import OPENAI_API_KEY # define key in config.py
 import time
 import os
 
-
+openai.api_key = OPENAI_API_KEY
 script_directory = os.path.dirname(os.path.abspath(__file__))
 default_input_file = os.path.join(script_directory, "input.txt")  
 
@@ -27,10 +27,10 @@ def convert_to_markdown(text, response_length = "medium"):
         raise ValueError("Invalid response_length. Choose from 'summary', 'regular', or 'long'.")
 
     # Make a request to GPT
-    response = openai.Completion.create(
-        engine="text-davinci-002",
+    response = openai.completions.create(
+        model="text-davinci-002",
         prompt=prompt,
-        max_tokens=response_length 
+        max_tokens=response_length, 
     )
 
     return response.choices[0].text.strip()
