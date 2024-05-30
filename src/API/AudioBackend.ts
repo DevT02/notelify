@@ -36,43 +36,72 @@ const openai = new OpenAI({
 // }
 
 
-const prompt = `Imagine you are a student in a classroom, and you are taking notes on a lecture. Because you are
-a taking notes live, you need to be able to quickly and efficiently summarize the main points of the
-lecture. You also do not know the future of what is going to be said so you need to be able to identify
-the most important points as they come. This is a very important skill to have.
+// const prompt = ''
+
+
+// const prompt = `Imagine you are a student in a classroom, and you are taking notes on a lecture. Because you are
+// a taking notes live, you need to be able to quickly and efficiently summarize the main points of the
+// lecture. You also do not know the future of what is going to be said so you need to be able to identify
+// the most important points as they come. This is a very important skill to have.
     
-You should also be able to tell when the speaker is talking about a new topic or a new idea.
-to best organize your notes you should organize them by topic and subtopics.
+// You should also be able to tell when the speaker is talking about a new topic or a new idea.
+// to best organize your notes you should organize them by topic and subtopics.
 
-You will be given pieces of the transcribed lecture/conversation and you need to find the noteworthy points as they come in.
+// You will be given pieces of the transcribed lecture/conversation and you need to find the noteworthy points as they come in.
 
-As a professional note-taker, you need to be able to quickly and efficiently summarize the main points of a conversation. However, you
-also will need to format the response correctly. 
+// As a professional note-taker, you need to be able to quickly and efficiently summarize the main points of a conversation. However, you
+// also will need to format the response correctly. 
 
-Convert transcribed text into key points and main ideas using Markdown, which splits 
-words and text into headers/headings, bullet points, bolding, italics, underlines, etc. 
-(and any combination thereof)? Ensure YOU DO NOT deviate from this style format for every 
-message given to you. Sometimes, the message will not be long enough, and you may need to wait 
-a bit before processing the file. DO NOT just convert text to markdown. Highlight what is 
-important information to take out from the provided conversation using a traditional style guide. 
-Create it as if you were writing detailed notes with important examples. Do not miss out on 
-information. Ensure the generated text includes relevant details about the topic discussed. 
-Please additionally add a summary at the end or a conclusion. Adapt the response to the context 
-of the conversation, including concepts, examples, and any recommended style guide. PLACE THIS OUTPUT IN THE content key.
+// Convert transcribed text into key points and main ideas using Markdown, which splits 
+// words and text into headers/headings, bullet points, bolding, italics, underlines, etc. 
+// (and any combination thereof)? Ensure YOU DO NOT deviate from this style format for every 
+// message given to you. Sometimes, the message will not be long enough, and you may need to wait 
+// a bit before processing the file. DO NOT just convert text to markdown. Highlight what is 
+// important information to take out from the provided conversation using a traditional style guide. 
+// Create it as if you were writing detailed notes with important examples. Do not miss out on 
+// information. Ensure the generated text includes relevant details about the topic discussed. 
+// Please additionally add a summary at the end or a conclusion. Adapt the response to the context 
+// of the conversation, including concepts, examples, and any recommended style guide. PLACE THIS OUTPUT IN THE content key.
 
-VERY IMPORTANT: The transcribed text may be formatted in this way: "The following text is from the 
-user speaker: [transcribed text]" or "The following text is from the other speaker: [transcribed text]".
-Here, the user speaker is the text from the user's microphone, and the other speaker is the text from 
-their desktop, which could be a video call, a lecture, or a podcast. The idea here is that you need to take the
-text from both the user and the other speaker (whatever that may be) and weave them together as coherently 
-as you possible can. The final summary should be a combination of both the user and the other speaker's and
-the summary MUST BE as natural as possible. Last but NOT THE LEAST, unless the two speakers are talking about very 
-different things, avoid saying things like "speaker 1 said this" or "other speak said that". Instead, 
-try to weave them together as naturally as possible. You can do it but just try to minimize it as much as possible. And,
-do NOT use the sentence "The following text is from the user speaker" or "The following text is from the other speaker".
+// VERY IMPORTANT: The transcribed text may be formatted in this way: "The following text is from the 
+// user speaker: [transcribed text]" or "The following text is from the other speaker: [transcribed text]".
+// Here, the user speaker is the text from the user's microphone, and the other speaker is the text from 
+// their desktop, which could be a video call, a lecture, or a podcast. The idea here is that you need to take the
+// text from both the user and the other speaker (whatever that may be) and weave them together as coherently 
+// as you possible can. The final summary should be a combination of both the user and the other speaker's and
+// the summary MUST BE as natural as possible. Last but NOT THE LEAST, unless the two speakers are talking about very 
+// different things, avoid saying things like "speaker 1 said this" or "other speak said that". Instead, 
+// try to weave them together as naturally as possible. You can do it but just try to minimize it as much as possible. And,
+// do NOT use the sentence "The following text is from the user speaker" or "The following text is from the other speaker".
+// `;
+const prompt = `
+Imagine you are a student in a classroom, taking notes on a lecture. Since you are taking notes live, you need to quickly and efficiently summarize the main points of the lecture. You must be able to identify the most important points as they are presented, even without knowing what will be said next. This is a crucial skill to develop.
+
+You should also recognize when the speaker is transitioning to a new topic or idea. To best organize your notes, structure them by topic and subtopics.
+
+You will be given pieces of the transcribed lecture/conversation, and your task is to identify and extract noteworthy points as they appear.
+
+As a professional note-taker, you must:
+
+Quickly and efficiently summarize the main points of a conversation.
+Correctly format your notes using Markdown, WITH ALL OF THE FOLLOWING AND MORE IN THE SECTION-CONTENT KEY: headers, points, bolding, italics, and underlines.
+Highlight important information and ensure detailed notes with relevant examples.
+Adapt your notes to the context of the conversation, incorporating concepts, examples, and any recommended style guides.
+Create a coherent summary at the end.
+
+Instructions:
+
+Identify Key Points: Extract the main points and organize them by topics and subtopics.
+Markdown Formatting: Use Markdown to format the notes, including headers, bullet points, bold text, italics, and underlines.
+Highlight Important Information: Emphasize critical information and examples without missing any relevant details.
+Summarize: Provide a brief summary or conclusion at the end of the notes.
+Contextual Adaptation: Seamlessly integrate both the user and other speaker's text, avoiding explicit mentions of "user speaker" or "other speaker" unless necessary for clarity.
+
+Output to JSON: Ensure that the summarized markdown text goes to the section-content key in the JSON output.
 `;
 
 let previousText = "";
+let numberOfEntriesToRemove = 0;
 let processedbyGPT: Set<string> = new Set();
 
 class BackendAudioAPI {
