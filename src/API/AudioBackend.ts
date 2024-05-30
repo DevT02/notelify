@@ -73,6 +73,7 @@ do NOT use the sentence "The following text is from the user speaker" or "The fo
 `;
 
 let previousText = "";
+let processedbyGPT: Set<string> = new Set();
 
 class BackendAudioAPI {
     assistant_id: any;
@@ -190,7 +191,7 @@ class BackendAudioAPI {
         return actualNewText;    
     }
     
-
+    // figure out a better solution for this
     async processTextWithDelay(text: string, props: any, lineBreaks?: number): Promise<void> {
         const lines = text.split('\n');
     
@@ -218,19 +219,28 @@ class BackendAudioAPI {
     
     async summarize(text: string, props: any, supabaseInstance: any, currNoteId: number): Promise<void>{
         console.log(`Transcribed Text: ${text}`);
-
+        
         const isTextValid = text.includes("The following text is from the user speaker:") && text.includes("The following text is from the other speaker:");
         const isEmpty = text.trim() === "";
         if (isTextValid || isEmpty) {
             return; // Early return to avoid processing this text
         }
-        
+
         if (props.editorRef.current?.getHTML() === "<p>Notes will be generated here...</p>") {
             props.editorRef.current?.clearContent();
         }
           
         
         try {
+
+            // Combine text that wasn't processed by GPT (sometimes happens when the text is too short)
+            text = Array.from(processedbyGPT).join(' ') + text;
+            processedbyGPT.clear(); 
+            processedbyGPT.add(text);  
+
+            console.log(`Text to be processed: ${text}`);
+
+
             // Create a thread with an id.
             const thread = await openai.beta.threads.create();
             const threadId = thread.id;
@@ -263,6 +273,8 @@ class BackendAudioAPI {
                             for (let i = 0; i < parsedJson.sections.length; ++i) {
                                 let title = parsedJson.sections[i]["section-title"];
                                 let content = parsedJson.sections[i]["section-content"];
+                                // clear content as we know it has been processed.
+                                processedbyGPT.clear();
 
                                 await this.processTextWithDelay("## " + title, props);
                                 await this.processTextWithDelay(content, props, 2);
@@ -285,6 +297,7 @@ class BackendAudioAPI {
                     }
                 }
             });
+
             // ).on('toolCallDelta', (toolCallDelta: any, snapshot: any) => {
             
             //     if (waitMoreCalls) {
