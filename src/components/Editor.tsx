@@ -75,7 +75,10 @@ const TiptapEditor = forwardRef<ModifiedEditorHandle>((props, ref) => {
     },
     getHTML: () => {
       return editor?.getHTML(); // Add this line to expose getHTML
-    },  
+    },
+    getText: () => {
+      return editor?.state.doc.textContent; 
+    }  
   }));
 
   useEffect(() => {
