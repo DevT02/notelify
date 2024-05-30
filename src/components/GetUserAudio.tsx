@@ -207,6 +207,8 @@ const CaptureAudioGeneric = (
         mediaStream.getTracks().forEach((track) => track.stop());
       }
 
+      audioBackend.startEndSummarize(props);
+      
       const { data, error } = await supabase
         .from("sections")
         .select("*")

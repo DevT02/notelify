@@ -12,6 +12,8 @@ import { EventEmitter } from 'events';
 import { response } from "express";
 import { json } from "stream/consumers";
 import { startupSnapshot } from "v8";
+import { ProgressHTMLAttributes } from "react";
+import { NutIcon } from "lucide-react";
 
 // Set up environment variables
 dotenv.config();
@@ -363,6 +365,13 @@ class BackendAudioAPI {
         });
     }
     
+    async startEndSummarize(props: any): Promise<void> {
+        // get editor content, then summarize it/append it to the editor
+        props.editorRef.current?.getHTML(); // 
+        
+        props.editorRef.current?.appendContent();
+    }
+
 }
 
 export default BackendAudioAPI;
