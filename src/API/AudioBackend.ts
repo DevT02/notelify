@@ -9,7 +9,6 @@ import * as dotenv from "dotenv";
 import hark from "hark";
 import { ReadableStream } from 'web-streams-polyfill/ponyfill/es2018';
 import { EventEmitter } from 'events';
-import { AssistantStreamEvent } from "openai/resources/beta/assistants/assistants";
 import { response } from "express";
 import { json } from "stream/consumers";
 import { startupSnapshot } from "v8";
@@ -113,7 +112,7 @@ class BackendAudioAPI {
             name: "Professional Notetaker",
             instructions: prompt,
             // model: "gpt-3.5-turbo-0125",
-            model: "gpt-3.5-turbo",
+            model: "gpt-4o",
             tools: [{
                 "type": "function",
                 "function": {    
@@ -272,10 +271,9 @@ class BackendAudioAPI {
 
             // Create a thread with an id.
             const thread = await openai.beta.threads.create();
-            const threadId = thread.id;
 
             // Create a message.
-            const msg = await openai.beta.threads.messages.create(threadId, {
+            const msg = await openai.beta.threads.messages.create(thread.id, {
                 role: "user",
                 content: `${text}`,
             });
@@ -285,14 +283,13 @@ class BackendAudioAPI {
             let waitMoreCalls = false; 
 
             // Run the assistant.
-            const run = openai.beta.threads.runs.createAndStream(
-                threadId,
-                {
-                    assistant_id: this.assistant_id,
-                    stream: true
-                }
+            const run = openai.beta.threads.runs.stream(thread.id, {
+                assistant_id: this.assistant_id,
+                stream: true
+            }
             ).on("event", async (evt: any) => {
                 // This event is an example to get JSON output from the assistant. It will be useful to get user_id, title, content, and transcribed_text.
+
                 if (evt.event === "thread.run.requires_action") {
                     const jsonText = evt.data.required_action?.submit_tool_outputs.tool_calls[0].function.arguments;
                     if (jsonText) {
