@@ -7,13 +7,14 @@ Whisper API. And, it also provides a method to summarize that transcribed string
 import OpenAI from "openai";
 import * as dotenv from "dotenv";
 import hark from "hark";
-import { ReadableStream } from 'web-streams-polyfill/ponyfill/es2018';
+import { AssistantStream } from 'openai/lib/AssistantStream';
 import { EventEmitter } from 'events';
 import { response } from "express";
 import { json } from "stream/consumers";
 import { startupSnapshot } from "v8";
 import { ProgressHTMLAttributes } from "react";
 import { NutIcon } from "lucide-react";
+import { gpt4Call } from "./gpt4Call";
 
 // Set up environment variables
 dotenv.config();
@@ -84,30 +85,68 @@ You will be given pieces of the transcribed lecture/conversation, and your task 
 
 As a professional note-taker, you must:
 
-Quickly and efficiently summarize the main points of a conversation.
-Correctly format your notes using Markdown, WITH ALL OF THE FOLLOWING AND MORE IN THE SECTION-CONTENT KEY: headers, points, bolding, italics, and underlines.
-Highlight important information and ensure detailed notes with relevant examples.
-Adapt your notes to the context of the conversation, incorporating concepts, examples, and any recommended style guides.
-Create a coherent summary at the end.
+1. Quickly and efficiently summarize the main points of a conversation.
+2. Correctly format your notes using Markdown, incorporating headers, bullet points, bolding, italics, and underlines.
+3. Highlight important information and ensure detailed notes with relevant examples.
+4. Adapt your notes to the context of the conversation, incorporating concepts, examples, and any recommended style guides.
+5. Create a coherent summary at the end.
+6. Seamlessly integrate both the user and other speaker's text, avoiding explicit mentions of "user speaker" or "other speaker" unless necessary for clarity.
+7. Output your response BY USING A TOOL. 
 
-Instructions:
+**IMPORTANT!!!!** 
+YOU SHOULD ALSO TAKE A GUESS AT WHICH CATEGORY THE CONTENT FALLS UNDER such as education, entertainment, persuasion, advertising, marketing, public relations, etc. and incorporate the BEST NOTE-TAKING practices for that category. FOR EXAMPLE:
 
-Identify Key Points: Extract the main points and organize them by topics and subtopics.
-Markdown Formatting: Use Markdown to format the notes, including headers, bullet points, bold text, italics, and underlines.
-Highlight Important Information: Emphasize critical information and examples without missing any relevant details.
-Summarize: Provide a brief summary or conclusion at the end of the notes.
-Contextual Adaptation: Seamlessly integrate both the user and other speaker's text, avoiding explicit mentions of "user speaker" or "other speaker" unless necessary for clarity.
+For educational content, you might want to include the following elements in your notes:
 
-Output to JSON: Ensure that the summarized markdown text goes to the section-content key in the JSON output.
+- Use tables to organize comparative information or data.
+- Include graphs where relevant to illustrate data points.
+- Add code snippets or formulas in appropriate sections.
+
+For a news channel, you might want to include the following elements in your notes:
+
+- Use bold headers to indicate new sections or topics.
+- Include bullet points for quick, digestible information.
+- Highlight quotes or important statements using blockquotes.
+
+
+
+
+Example Output (with line breaks for readability, output should be in a single block of text):
+## Lecture Notes on Climate Change
+
+### Introduction
+- **Climate Change Definition:** The long-term alteration of temperature and typical weather patterns in a place.
+
+### Causes of Climate Change
+- **Greenhouse Gases:** Emissions from burning fossil fuels like coal, oil, and gas.
+- **Deforestation:** Reduction of trees that absorb CO2.
+
+### Impacts of Climate Change
+- **Rising Sea Levels:** Due to melting polar ice caps.
+- **Extreme Weather Events:** Increase in frequency and severity.
+
+### Comparative Data
+| Year | CO2 Emissions (ppm) | Global Temperature (°C) |
+|------|----------------------|-------------------------|
+| 2000 | 369                  | 14.3                    |
+| 2010 | 389                  | 14.6                    |
+| 2020 | 414                  | 15.0                    |
+
+> "The evidence for rapid climate change is compelling." - NASA
+
+### Summary
+
+Climate change is driven by human activities and has severe impacts on the environment, necessitating urgent action.
+
+ONCE AGAIN. OUTPUT YOUR RESPONSE BY USING A TOOL. ENSURE CONTENT IS NOT JUST BULLET POINTS AND HEADERS. IT SHOULD BE AS IF I WAS WRITING IT ON PEN AND PAPER.
 `;
 
-let previousText = "";
-let numberOfEntriesToRemove = 0;
-let processedbyGPT: Set<string> = new Set();
 
 class BackendAudioAPI {
     assistant_id: any;
-
+    previousText: string = "";
+    processedbyGPT: Set<string> = new Set();
+    
     async initAssistant(): Promise<void> {
         // Method that will initialize the GPT Assistant
         const assistantResponse = await openai.beta.assistants.create({
@@ -118,17 +157,10 @@ class BackendAudioAPI {
             tools: [{
                 "type": "function",
                 "function": {    
-                    "name": "response",
+                    "name": "summarize_conversation",
                     "description": "Note-taking with title and various markdown styles in a summary",
                     "parameters": {
                         "type": "object",
-                        "required": [
-                            "userid",
-                            "title",
-                            "sections",
-                            "content",
-                            "transcribed_text"
-                        ],    
                         "properties": {
                             "userid": {
                                 "type": "string",
@@ -155,16 +187,9 @@ class BackendAudioAPI {
                                         }
                                     }
                                 }
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "The full summary of the conversation in markdown format",
-                            },
-                            "transcribed_text": {
-                                "type": "string",
-                                "description": "The transcribed text of the conversation"
-                            },
+                            }
                         },
+                        "required": [ "userid", "title", "sections"]
                     }
                 }
             }]
@@ -195,14 +220,14 @@ class BackendAudioAPI {
     
     // This method is relies on the fact that everything is added to the end of whisper. Uses LCS.
     async textChanged(newText: string): Promise<string> {
-        if (previousText === newText) {
+        if (this.previousText === newText) {
             return "";
         }
     
         let index = -1;
         // Find the index where new unique text starts in the newText by comparing it from the end
-        for (let i = 0; i < previousText.length && i < newText.length; i++) {
-            if (newText[i] !== previousText[i]) {
+        for (let i = 0; i < this.previousText.length && i < newText.length; i++) {
+            if (newText[i] !== this.previousText[i]) {
                 index = i;
                 break;
             }
@@ -216,7 +241,7 @@ class BackendAudioAPI {
         }
     
         // Update previousText with the current newText for the next call
-        previousText = newText;
+        this.previousText = newText;
     
         return actualNewText;    
     }
@@ -264,9 +289,9 @@ class BackendAudioAPI {
         try {
 
             // Combine text that wasn't processed by GPT (sometimes happens when the text is too short)
-            text = Array.from(processedbyGPT).join(' ') + text;
-            processedbyGPT.clear(); 
-            processedbyGPT.add(text);  
+            text = Array.from(this.processedbyGPT).join(' ') + text;
+            this.processedbyGPT.clear(); 
+            this.processedbyGPT.add(text);  
 
             console.log(`Text to be processed: ${text}`);
 
@@ -287,12 +312,12 @@ class BackendAudioAPI {
             // Run the assistant.
             const run = openai.beta.threads.runs.stream(thread.id, {
                 assistant_id: this.assistant_id,
-                stream: true
             }
             ).on("event", async (evt: any) => {
                 // This event is an example to get JSON output from the assistant. It will be useful to get user_id, title, content, and transcribed_text.
 
                 if (evt.event === "thread.run.requires_action") {
+                        
                     const jsonText = evt.data.required_action?.submit_tool_outputs.tool_calls[0].function.arguments;
                     if (jsonText) {
                         try {
@@ -301,8 +326,10 @@ class BackendAudioAPI {
                             for (let i = 0; i < parsedJson.sections.length; ++i) {
                                 let title = parsedJson.sections[i]["section-title"];
                                 let content = parsedJson.sections[i]["section-content"];
+                                console.log(content, "h1");
+                                console.log(title, "h2");
                                 // clear content as we know it has been processed.
-                                processedbyGPT.clear();
+                                this.processedbyGPT.clear();
 
                                 await this.processTextWithDelay("## " + title, props);
                                 await this.processTextWithDelay(content, props, 2);
@@ -320,10 +347,40 @@ class BackendAudioAPI {
                             }
                         }
                         catch (err) {
-                            console.log("Waiting for section-title/section-content", err);
                         }
                     }
                 }
+                // else if (evt.event === "thread.run.completed") {
+                //     let messages = await openai.beta.threads.messages.list(thread.id);
+                //     let content = messages.data[0]['content'][0]['text'].value;
+
+                //     console.log(content);
+                //     console.log(messages.data);
+
+                //     if (content) {
+                //         try {
+                //             let title = "blank"
+                //             // clear content as we know it has been processed.
+                //             processedbyGPT.clear();
+
+                //             await this.processTextWithDelay(content, props, 2);
+
+                //             // Insert this section into the database
+                //             const { errror } = await supabaseInstance
+                //                 .from("sections")
+                //                 .insert([
+                //                     {
+                //                         section_title: title,
+                //                         section_content: content,
+                //                         parent_note_id: currNoteId
+                //                     }
+                //                 ]);
+                //         }
+                //         catch (err) {
+                //             console.log("Waiting for section-title/section-content", err);
+                //         }
+                //     }
+                // }
             });
 
             // ).on('toolCallDelta', (toolCallDelta: any, snapshot: any) => {
@@ -367,9 +424,11 @@ class BackendAudioAPI {
     
     async startEndSummarize(props: any): Promise<void> {
         // get editor content, then summarize it/append it to the editor
-        props.editorRef.current?.getHTML(); // 
+        const content = props.editorRef.current?.getText(); // 
         
-        props.editorRef.current?.appendContent();
+        const gptEndSummary = gpt4Call(content);
+
+        props.editorRef.current?.appendContent(gptEndSummary);
     }
 
 }

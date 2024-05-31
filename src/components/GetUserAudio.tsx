@@ -69,6 +69,7 @@ const CaptureAudioGeneric = (
         captureAudio();
       } else {
         // Stop capturing audio
+        console.log("stopped audio 1")
         stopAudio();
       }
       setIsCapturing(!isCapturing);
@@ -115,6 +116,7 @@ const CaptureAudioGeneric = (
             track.onended = () => {
               if (recorder.state !== "inactive") {
                 recorder.stop();
+                audioBackend.startEndSummarize(props);
               }
             };
           });
@@ -206,7 +208,6 @@ const CaptureAudioGeneric = (
       if (mediaStream) {
         mediaStream.getTracks().forEach((track) => track.stop());
       }
-
       audioBackend.startEndSummarize(props);
       
       const { data, error } = await supabase
